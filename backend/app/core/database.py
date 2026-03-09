@@ -3,7 +3,11 @@ from beanie import init_beanie
 from app.core.config import settings
 from app.models.user import User
 from app.models.project import Project
+from app.models.literature import LiteratureDocument
 
 async def init_db():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
-    await init_beanie(database=client.sdg_project_db, document_models=[User, Project])
+    await init_beanie(
+        database=client.sdg_project_db,
+        document_models=[User, Project, LiteratureDocument]
+    )

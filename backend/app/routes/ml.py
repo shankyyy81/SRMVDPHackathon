@@ -11,23 +11,39 @@ router = APIRouter()
 # LOAD MODEL
 # =========================================================
 
-try:
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    MODEL_PATH = str(BASE_DIR / "ml_model")
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = str(BASE_DIR / "ml_model")
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
+tokenizer = None
+model = None
+device = None
+_model_load_error: str | None = None
 
-    model = AutoModelForSequenceClassification.from_pretrained(
-        MODEL_PATH,
-        local_files_only=True
-    )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
+def _load_model():
+    """Lazy-load the SDG model on first use."""
+    global tokenizer, model, device, _model_load_error
 
-except Exception as e:
-    raise RuntimeError(f"❌ Failed to load SDG model: {e}")
+    if model is not None:
+        return  # already loaded
+
+    if _model_load_error is not None:
+        return  # already failed — don't retry
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, local_files_only=True)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            MODEL_PATH,
+            local_files_only=True
+        )
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        model.eval()
+    except Exception as e:
+        _model_load_error = (
+            f"SDG model not found at '{MODEL_PATH}'. "
+            f"Please place the model files there and restart. Details: {e}"
+        )
 
 
 # =========================================================
@@ -82,6 +98,8 @@ MIN_CONF = 0.3
 HIGH_CONF = 0.7
 
 def predict_sdgs(text: str):
+
+    _load_model()
 
     inputs = tokenizer(
         text,
@@ -140,6 +158,10 @@ async def analyze_problem_statement(request: AnalysisRequest):
 
     if not request.problem_statement.strip():
         raise HTTPException(status_code=400, detail="Problem statement cannot be empty")
+
+    _load_model()
+    if _model_load_error:
+        raise HTTPException(status_code=503, detail=_model_load_error)
 
     try:
         applied, strong = predict_sdgs(request.problem_statement)

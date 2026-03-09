@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import uuid4
 from .user import User
 
+
 class ProjectStatus(str, Enum):
     ON_TRACK = "On Track"
     DELAYED = "Delayed"
@@ -21,6 +22,15 @@ class TaskStatus(str, Enum):
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
 
+class TaskAttachment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    filename: str          # UUID-safe name on disk
+    original_name: str     # original filename shown to user
+    content_type: str
+    size_bytes: int
+    uploaded_by: Optional[str] = None
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+
 class ProjectTask(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     title: str
@@ -28,6 +38,7 @@ class ProjectTask(BaseModel):
     status: TaskStatus = TaskStatus.TODO
     created_by: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    attachments: List[TaskAttachment] = []
 
 class ProjectChatMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))

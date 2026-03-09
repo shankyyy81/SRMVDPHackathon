@@ -32,3 +32,6 @@ pnpm-debug.log*
 
 # ML Model
 backend/app/ml_model/
+
+# User Uploads
+backend/uploads/

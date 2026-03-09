@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings
 from typing import List
+from pathlib import Path
+
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str ="SDG Project Manager"
@@ -15,8 +18,10 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000"
     ]
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
 
     class Config:
-        env_file = ".env"
+        env_file = str(ENV_FILE)
 
 settings = Settings()

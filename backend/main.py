@@ -22,10 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routes import auth, projects, ml
+from app.routes import auth, projects, ml, rag
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(projects.router, prefix="/projects", tags=["Projects"])
 app.include_router(ml.router, prefix="/ml", tags=["ML"])
+app.include_router(rag.router, prefix="/rag", tags=["RAG"])
 
 @app.get("/")
 async def root():

@@ -1,11 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
     createProjectTask,
     getProjectWorkspace,
     updateProjectTask,
     getProjectChat,
-    postProjectChat
+    postProjectChat,
+    queryRagAnswer,
+    listLiteratureDocuments,
+    uploadLiteratureDocument,
+    downloadLiteratureDocument,
+    uploadAttachment,
+    deleteAttachment,
+    downloadAttachment,
 } from '../api/projects';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,11 +33,19 @@ export default function ProjectWorkspace() {
     const [chatText, setChatText] = useState('');
     const [chatSending, setChatSending] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [ragQuery, setRagQuery] = useState('');
+    const [ragAnswer, setRagAnswer] = useState('');
+    const [ragLoading, setRagLoading] = useState(false);
+    const [ragDocs, setRagDocs] = useState([]);
+    const [ragUploadLoading, setRagUploadLoading] = useState(false);
     const [newTask, setNewTask] = useState({
         title: '',
         description: '',
         status: 'TODO'
     });
+    // attachment upload state: { [taskId]: { uploading: bool, error: string } }
+    const [attachState, setAttachState] = useState({});
+    const fileInputRefs = useRef({});
 
     useEffect(() => {
         loadWorkspace();
@@ -49,6 +64,18 @@ export default function ProjectWorkspace() {
         loadChat();
         intervalId = setInterval(loadChat, 5000);
         return () => clearInterval(intervalId);
+    }, [projectId]);
+
+    useEffect(() => {
+        const loadLiteratureDocs = async () => {
+            try {
+                const docs = await listLiteratureDocuments(projectId);
+                setRagDocs(docs);
+            } catch {
+                setRagDocs([]);
+            }
+        };
+        loadLiteratureDocs();
     }, [projectId]);
 
     const loadWorkspace = async () => {
@@ -116,6 +143,47 @@ export default function ProjectWorkspace() {
         }
     };
 
+    const handleUpload = async (taskId, file) => {
+        if (!file) return;
+        setAttachState((prev) => ({ ...prev, [taskId]: { uploading: true, error: '' } }));
+        try {
+            const newAtt = await uploadAttachment(projectId, taskId, file);
+            setWorkspace((prev) => ({
+                ...prev,
+                tasks: prev.tasks.map((t) =>
+                    t.id === taskId
+                        ? { ...t, attachments: [...(t.attachments || []), newAtt] }
+                        : t
+                ),
+            }));
+            setAttachState((prev) => ({ ...prev, [taskId]: { uploading: false, error: '' } }));
+        } catch (err) {
+            setAttachState((prev) => ({ ...prev, [taskId]: { uploading: false, error: err.message } }));
+        }
+    };
+
+    const handleDeleteAttachment = async (taskId, attachmentId) => {
+        try {
+            await deleteAttachment(projectId, taskId, attachmentId);
+            setWorkspace((prev) => ({
+                ...prev,
+                tasks: prev.tasks.map((t) =>
+                    t.id === taskId
+                        ? { ...t, attachments: (t.attachments || []).filter((a) => a.id !== attachmentId) }
+                        : t
+                ),
+            }));
+        } catch (err) {
+            setError(err.message || 'Failed to delete attachment');
+        }
+    };
+
+    const formatBytes = (bytes) => {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
     const handleSendMessage = async (e) => {
         e.preventDefault();
         const message = chatText.trim();
@@ -129,6 +197,41 @@ export default function ProjectWorkspace() {
             setError(err.message || 'Failed to send message');
         } finally {
             setChatSending(false);
+        }
+    };
+
+    const handleAskRag = async (e) => {
+        e.preventDefault();
+        const question = ragQuery.trim();
+        if (!question) return;
+
+        setRagLoading(true);
+        setRagAnswer('');
+        setError('');
+        try {
+            const answer = await queryRagAnswer(projectId, question, 4);
+            setRagAnswer(answer);
+        } catch (err) {
+            setError(err.message || 'Failed to get AI answer');
+        } finally {
+            setRagLoading(false);
+        }
+    };
+
+    const handleLiteratureUpload = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        setRagUploadLoading(true);
+        setError('');
+        try {
+            await uploadLiteratureDocument(projectId, file);
+            const docs = await listLiteratureDocuments(projectId);
+            setRagDocs(docs);
+        } catch (err) {
+            setError(err.message || 'Failed to upload literature document');
+        } finally {
+            setRagUploadLoading(false);
         }
     };
 
@@ -167,8 +270,61 @@ export default function ProjectWorkspace() {
             </div>
 
             <div className="card mb-4">
+                <h3 style={{ fontSize: '1.2rem' }}>AI RAG Assistant</h3>
+                <div className="mb-3">
+                    <label className="form-label">Upload literature file (PDF/TXT/MD)</label>
+                    <input
+                        type="file"
+                        className="form-control"
+                        accept=".pdf,.txt,.md"
+                        onChange={handleLiteratureUpload}
+                        disabled={ragUploadLoading}
+                    />
+                    <div className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                        {ragUploadLoading ? 'Indexing document...' : `Indexed documents: ${ragDocs.length}`}
+                    </div>
+                    {ragDocs.length > 0 && (
+                        <div style={{ marginTop: '0.5rem' }}>
+                            {ragDocs.map((d) => (
+                                <div key={d.id} className="d-flex items-center gap-2" style={{ marginBottom: '0.35rem' }}>
+                                    <span className="text-muted" style={{ fontSize: '0.85rem' }}>{d.filename}</span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }}
+                                        onClick={() => downloadLiteratureDocument(projectId, d.id, d.filename)}
+                                    >
+                                        Download
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <form onSubmit={handleAskRag} className="mt-2">
+                    <div className="form-group">
+                        <label className="form-label">Ask for literature survey insights</label>
+                        <input
+                            className="form-control"
+                            value={ragQuery}
+                            onChange={(e) => setRagQuery(e.target.value)}
+                            placeholder="What methods are commonly used for this problem?"
+                        />
+                    </div>
+                    <button className="btn btn-primary" disabled={ragLoading || !ragQuery.trim() || ragDocs.length === 0}>
+                        {ragLoading ? 'Generating...' : 'Get Answer'}
+                    </button>
+                </form>
+                {ragAnswer && (
+                    <div className="mt-3" style={{ whiteSpace: 'pre-wrap' }}>
+                        {ragAnswer}
+                    </div>
+                )}
+            </div>
+
+            <div className="card mb-4">
                 <h3 style={{ fontSize: '1.2rem' }}>
-                    {user?.role === 'FACULTY' ? 'Faculty Task Board' : 'Team Task Board'}
+                    {user?.role === 'FACULTY' ? 'Faculty Task Board (Jira-style)' : 'Team Task Board'}
                 </h3>
                 <form onSubmit={handleCreateTask} className="mt-2">
                     <div className="grid grid-cols-1 grid-cols-2 gap-2">
@@ -242,6 +398,71 @@ export default function ProjectWorkspace() {
                                                 <option key={col.key} value={col.key}>{col.label}</option>
                                             ))}
                                         </select>
+                                    </div>
+
+                                    {/* ── Attachments ── */}
+                                    <div className="task-attachments">
+                                        {(task.attachments || []).length > 0 && (
+                                            <ul className="attachment-list">
+                                                {(task.attachments || []).map((att) => (
+                                                    <li key={att.id} className="attachment-item">
+                                                        <span className="attachment-icon">📄</span>
+                                                        <span
+                                                            className="attachment-name"
+                                                            title={att.original_name}
+                                                        >
+                                                            {att.original_name.length > 24
+                                                                ? att.original_name.slice(0, 22) + '…'
+                                                                : att.original_name}
+                                                        </span>
+                                                        <span className="attachment-size">
+                                                            {formatBytes(att.size_bytes)}
+                                                        </span>
+                                                        <button
+                                                            className="attachment-btn download"
+                                                            title="Download"
+                                                            onClick={() =>
+                                                                downloadAttachment(
+                                                                    projectId, task.id,
+                                                                    att.id, att.original_name
+                                                                )
+                                                            }
+                                                        >⬇</button>
+                                                        <button
+                                                            className="attachment-btn delete"
+                                                            title="Delete"
+                                                            onClick={() =>
+                                                                handleDeleteAttachment(task.id, att.id)
+                                                            }
+                                                        >🗑</button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+
+                                        {/* Hidden file input */}
+                                        <input
+                                            type="file"
+                                            style={{ display: 'none' }}
+                                            ref={(el) => { fileInputRefs.current[task.id] = el; }}
+                                            onChange={(e) => {
+                                                handleUpload(task.id, e.target.files[0]);
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                        <button
+                                            className="attachment-upload-btn"
+                                            type="button"
+                                            disabled={attachState[task.id]?.uploading}
+                                            onClick={() => fileInputRefs.current[task.id]?.click()}
+                                        >
+                                            {attachState[task.id]?.uploading ? '⏳ Uploading…' : '📎 Attach file'}
+                                        </button>
+                                        {attachState[task.id]?.error && (
+                                            <div style={{ color: 'var(--color-error)', fontSize: '0.8rem', marginTop: '4px' }}>
+                                                {attachState[task.id].error}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))

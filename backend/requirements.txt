@@ -12,3 +12,6 @@ email-validator
 argon2-cffi
 torch
 transformers
+aiofiles
+groq
+pypdf

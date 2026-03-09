@@ -5,6 +5,7 @@ from app.models.user import UserRole, FacultyProfile, StudentProfile
 from app.models.project import TaskStatus
 from datetime import datetime
 
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -63,6 +64,15 @@ class ProjectTaskUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
 
+class TaskAttachmentView(BaseModel):
+    id: str
+    filename: str
+    original_name: str
+    content_type: str
+    size_bytes: int
+    uploaded_by: Optional[str] = None
+    uploaded_at: datetime
+
 class ProjectTaskView(BaseModel):
     id: str
     title: str
@@ -70,6 +80,7 @@ class ProjectTaskView(BaseModel):
     status: TaskStatus
     created_by: Optional[str] = None
     created_at: datetime
+    attachments: List[TaskAttachmentView] = []
 
 class ProjectWorkspaceView(BaseModel):
     id: str
@@ -93,3 +104,7 @@ class ProjectChatMessageView(BaseModel):
     sender_role: Optional[str] = None
     message: str
     created_at: datetime
+
+class RagQueryRequest(BaseModel):
+    query: str
+    top_k: int = 4

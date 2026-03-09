@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import FileResponse
 from typing import List, Annotated
 from beanie import PydanticObjectId
+import aiofiles
+import os
+import uuid
+import mimetypes
+from pathlib import Path
 
 from app.routes.auth import get_current_user
 from app.models.user import User, UserRole
-from app.models.project import Project, ProjectStatus, Team, ProjectTask, ProjectChatMessage
+from app.models.project import Project, ProjectStatus, Team, ProjectTask, ProjectChatMessage, TaskAttachment
 from app.schemas import (
     ProjectCreate,
     ProjectAssign,
@@ -15,7 +21,17 @@ from app.schemas import (
     ProjectWorkspaceView,
     ProjectChatMessageCreate,
     ProjectChatMessageView,
+    TaskAttachmentView,
 )
+
+# Directory where uploaded files are stored
+UPLOAD_ROOT = Path(__file__).resolve().parent.parent.parent / "uploads"
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+ALLOWED_MIME_PREFIXES = {"image/", "application/pdf", "text/"}
+ALLOWED_EXTENSIONS = {
+    ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".zip",
+}
 
 router = APIRouter()
 
@@ -242,6 +258,17 @@ async def get_project_workspace(
                 if member_doc and member_doc.get("full_name"):
                     member_names.append(member_doc["full_name"])
 
+    def _attachment_view(a):
+        return TaskAttachmentView(
+            id=a.id,
+            filename=a.filename,
+            original_name=a.original_name,
+            content_type=a.content_type,
+            size_bytes=a.size_bytes,
+            uploaded_by=a.uploaded_by,
+            uploaded_at=a.uploaded_at,
+        )
+
     task_views = [
         ProjectTaskView(
             id=t.id,
@@ -249,7 +276,8 @@ async def get_project_workspace(
             description=t.description,
             status=t.status,
             created_by=t.created_by,
-            created_at=t.created_at
+            created_at=t.created_at,
+            attachments=[_attachment_view(a) for a in (t.attachments or [])],
         )
         for t in (project.tasks or [])
     ]
@@ -296,9 +324,9 @@ async def add_project_task(
         description=task.description,
         status=task.status,
         created_by=task.created_by,
-        created_at=task.created_at
+        created_at=task.created_at,
+        attachments=[],
     )
-
 @router.get("/{project_id}/chat", response_model=List[ProjectChatMessageView])
 async def list_project_chat(
     project_id: PydanticObjectId,
@@ -395,7 +423,12 @@ async def update_project_task(
         description=task.description,
         status=task.status,
         created_by=task.created_by,
-        created_at=task.created_at
+        created_at=task.created_at,
+        attachments=[TaskAttachmentView(
+            id=a.id, filename=a.filename, original_name=a.original_name,
+            content_type=a.content_type, size_bytes=a.size_bytes,
+            uploaded_by=a.uploaded_by, uploaded_at=a.uploaded_at,
+        ) for a in (task.attachments or [])],
     )
 
 @router.delete("/{project_id}")
@@ -464,3 +497,149 @@ async def assign_students(
     project.team = Team(name=team_name, leader=leader_user, members=members)
     await project.save()
     return project
+
+
+# =========================================================
+# ATTACHMENT ENDPOINTS
+# =========================================================
+
+@router.post("/{project_id}/tasks/{task_id}/attachments", response_model=TaskAttachmentView)
+async def upload_attachment(
+    project_id: PydanticObjectId,
+    task_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not _is_project_participant(project, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # Validate extension
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+
+    # Read & validate size
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File exceeds maximum allowed size of 10 MB")
+
+    # Find the task
+    tasks = project.tasks or []
+    task_idx = next((i for i, t in enumerate(tasks) if t.id == task_id), -1)
+    if task_idx == -1:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Build a safe on-disk filename
+    safe_id = str(uuid.uuid4())
+    disk_filename = f"{safe_id}{ext}"
+    content_type = file.content_type or (mimetypes.guess_type(file.filename)[0] or "application/octet-stream")
+
+    # Write to disk
+    dest_dir = UPLOAD_ROOT / str(project_id) / task_id
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_dir / disk_filename
+    async with aiofiles.open(dest_path, "wb") as f:
+        await f.write(contents)
+
+    # Persist metadata
+    attachment = TaskAttachment(
+        id=safe_id,
+        filename=disk_filename,
+        original_name=file.filename or disk_filename,
+        content_type=content_type,
+        size_bytes=len(contents),
+        uploaded_by=current_user.full_name,
+    )
+    project.tasks[task_idx].attachments.append(attachment)
+    await project.save()
+
+    return TaskAttachmentView(
+        id=attachment.id,
+        filename=attachment.filename,
+        original_name=attachment.original_name,
+        content_type=attachment.content_type,
+        size_bytes=attachment.size_bytes,
+        uploaded_by=attachment.uploaded_by,
+        uploaded_at=attachment.uploaded_at,
+    )
+
+
+@router.get("/{project_id}/tasks/{task_id}/attachments/{attachment_id}")
+async def download_attachment(
+    project_id: PydanticObjectId,
+    task_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not _is_project_participant(project, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    task = next((t for t in (project.tasks or []) if t.id == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    attachment = next((a for a in (task.attachments or []) if a.id == attachment_id), None)
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    file_path = UPLOAD_ROOT / str(project_id) / task_id / attachment.filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on server")
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=attachment.content_type,
+        filename=attachment.original_name,
+    )
+
+
+@router.delete("/{project_id}/tasks/{task_id}/attachments/{attachment_id}")
+async def delete_attachment(
+    project_id: PydanticObjectId,
+    task_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not _is_project_participant(project, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    tasks = project.tasks or []
+    task_idx = next((i for i, t in enumerate(tasks) if t.id == task_id), -1)
+    if task_idx == -1:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task = tasks[task_idx]
+    att_idx = next((i for i, a in enumerate(task.attachments or []) if a.id == attachment_id), -1)
+    if att_idx == -1:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    attachment = task.attachments[att_idx]
+
+    # Only uploader or faculty can delete
+    is_faculty = current_user.role == UserRole.FACULTY
+    is_uploader = attachment.uploaded_by == current_user.full_name
+    if not is_faculty and not is_uploader:
+        raise HTTPException(status_code=403, detail="Only the uploader or faculty can delete this attachment")
+
+    # Remove file from disk
+    file_path = UPLOAD_ROOT / str(project_id) / task_id / attachment.filename
+    if file_path.exists():
+        file_path.unlink()
+
+    # Remove metadata record
+    project.tasks[task_idx].attachments.pop(att_idx)
+    await project.save()
+
+    return {"status": "deleted", "attachment_id": attachment_id}
