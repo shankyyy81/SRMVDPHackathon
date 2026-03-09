@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     createProjectTask,
     getProjectWorkspace,
@@ -47,6 +48,28 @@ export default function ProjectWorkspace() {
     // attachment upload state: { [taskId]: { uploading: bool, error: string } }
     const [attachState, setAttachState] = useState({});
     const fileInputRefs = useRef({});
+
+    // Drag and Drop state
+    const [dragOverCol, setDragOverCol] = useState(null);
+
+    const handleDragStart = (e, taskId) => {
+        e.dataTransfer.setData("taskId", taskId);
+    };
+    const handleDragOver = (e, colKey) => {
+        e.preventDefault();
+        setDragOverCol(colKey);
+    };
+    const handleDragLeave = () => {
+        setDragOverCol(null);
+    };
+    const handleDrop = (e, colKey) => {
+        e.preventDefault();
+        setDragOverCol(null);
+        const taskId = e.dataTransfer.getData("taskId");
+        if (taskId) {
+            handleMoveTask(taskId, colKey);
+        }
+    };
 
     useEffect(() => {
         loadWorkspace();
@@ -249,7 +272,13 @@ export default function ProjectWorkspace() {
     if (!workspace) return <div className="text-center mt-8">Workspace unavailable.</div>;
 
     return (
-        <div className="container workspace-shell" style={{ paddingBottom: '2rem' }}>
+        <motion.div
+            className="container workspace-shell"
+            style={{ paddingBottom: '2rem' }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+        >
             <div className="workspace-header card mb-4">
                 <h2 style={{ marginBottom: '0.5rem' }}>{workspace.title}</h2>
                 <p className="text-muted"><strong>Problem Statement:</strong> {workspace.problem_statement}</p>
@@ -387,102 +416,120 @@ export default function ProjectWorkspace() {
 
             <div className="workspace-board">
                 {BOARD_COLUMNS.map((column) => (
-                    <div className="workspace-col" key={column.key}>
+                    <div
+                        className={`workspace-col ${dragOverCol === column.key ? 'drag-over' : ''}`}
+                        key={column.key}
+                        onDragOver={(e) => handleDragOver(e, column.key)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, column.key)}
+                    >
                         <h4>{column.label}</h4>
                         {groupedTasks[column.key].length === 0 ? (
                             <div className="text-muted" style={{ fontSize: '0.9rem' }}>No tasks</div>
                         ) : (
-                            groupedTasks[column.key].map((task) => (
-                                <div key={task.id} className="workspace-task">
-                                    <div className="d-flex justify-between items-center">
-                                        <strong>{task.title}</strong>
-                                    </div>
-                                    {task.description && (
-                                        <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                                            {task.description}
-                                        </p>
-                                    )}
-                                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>
-                                        Added by: {task.created_by || 'Unknown'}
-                                    </div>
-                                    <div className="mt-2">
-                                        <select
-                                            className="form-control"
-                                            value={task.status}
-                                            onChange={(e) => handleMoveTask(task.id, e.target.value)}
-                                        >
-                                            {BOARD_COLUMNS.map((col) => (
-                                                <option key={col.key} value={col.key}>{col.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* ── Attachments ── */}
-                                    <div className="task-attachments">
-                                        {(task.attachments || []).length > 0 && (
-                                            <ul className="attachment-list">
-                                                {(task.attachments || []).map((att) => (
-                                                    <li key={att.id} className="attachment-item">
-                                                        <span className="attachment-icon">📄</span>
-                                                        <span
-                                                            className="attachment-name"
-                                                            title={att.original_name}
-                                                        >
-                                                            {att.original_name.length > 24
-                                                                ? att.original_name.slice(0, 22) + '…'
-                                                                : att.original_name}
-                                                        </span>
-                                                        <span className="attachment-size">
-                                                            {formatBytes(att.size_bytes)}
-                                                        </span>
-                                                        <button
-                                                            className="attachment-btn download"
-                                                            title="Download"
-                                                            onClick={() =>
-                                                                downloadAttachment(
-                                                                    projectId, task.id,
-                                                                    att.id, att.original_name
-                                                                )
-                                                            }
-                                                        >⬇</button>
-                                                        <button
-                                                            className="attachment-btn delete"
-                                                            title="Delete"
-                                                            onClick={() =>
-                                                                handleDeleteAttachment(task.id, att.id)
-                                                            }
-                                                        >🗑</button>
-                                                    </li>
+                            <AnimatePresence>
+                                {groupedTasks[column.key].map((task) => (
+                                    <motion.div
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={{ duration: 0.2 }}
+                                        key={task.id}
+                                        className="workspace-task"
+                                        draggable="true"
+                                        onDragStart={(e) => handleDragStart(e, task.id)}
+                                    >
+                                        <div className="d-flex justify-between items-center">
+                                            <strong>{task.title}</strong>
+                                        </div>
+                                        {task.description && (
+                                            <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                                {task.description}
+                                            </p>
+                                        )}
+                                        <div className="text-muted" style={{ fontSize: '0.8rem' }}>
+                                            Added by: {task.created_by || 'Unknown'}
+                                        </div>
+                                        <div className="mt-2">
+                                            <select
+                                                className="form-control"
+                                                value={task.status}
+                                                onChange={(e) => handleMoveTask(task.id, e.target.value)}
+                                            >
+                                                {BOARD_COLUMNS.map((col) => (
+                                                    <option key={col.key} value={col.key}>{col.label}</option>
                                                 ))}
-                                            </ul>
-                                        )}
+                                            </select>
+                                        </div>
 
-                                        {/* Hidden file input */}
-                                        <input
-                                            type="file"
-                                            style={{ display: 'none' }}
-                                            ref={(el) => { fileInputRefs.current[task.id] = el; }}
-                                            onChange={(e) => {
-                                                handleUpload(task.id, e.target.files[0]);
-                                                e.target.value = '';
-                                            }}
-                                        />
-                                        <button
-                                            className="attachment-upload-btn"
-                                            type="button"
-                                            disabled={attachState[task.id]?.uploading}
-                                            onClick={() => fileInputRefs.current[task.id]?.click()}
-                                        >
-                                            {attachState[task.id]?.uploading ? '⏳ Uploading…' : '📎 Attach file'}
-                                        </button>
-                                        {attachState[task.id]?.error && (
-                                            <div style={{ color: 'var(--color-error)', fontSize: '0.8rem', marginTop: '4px' }}>
-                                                {attachState[task.id].error}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))
+                                        {/* ── Attachments ── */}
+                                        <div className="task-attachments">
+                                            {(task.attachments || []).length > 0 && (
+                                                <ul className="attachment-list">
+                                                    {(task.attachments || []).map((att) => (
+                                                        <li key={att.id} className="attachment-item">
+                                                            <span className="attachment-icon">📄</span>
+                                                            <span
+                                                                className="attachment-name"
+                                                                title={att.original_name}
+                                                            >
+                                                                {att.original_name.length > 24
+                                                                    ? att.original_name.slice(0, 22) + '…'
+                                                                    : att.original_name}
+                                                            </span>
+                                                            <span className="attachment-size">
+                                                                {formatBytes(att.size_bytes)}
+                                                            </span>
+                                                            <button
+                                                                className="attachment-btn download"
+                                                                title="Download"
+                                                                onClick={() =>
+                                                                    downloadAttachment(
+                                                                        projectId, task.id,
+                                                                        att.id, att.original_name
+                                                                    )
+                                                                }
+                                                            >⬇</button>
+                                                            <button
+                                                                className="attachment-btn delete"
+                                                                title="Delete"
+                                                                onClick={() =>
+                                                                    handleDeleteAttachment(task.id, att.id)
+                                                                }
+                                                            >🗑</button>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+
+                                            {/* Hidden file input */}
+                                            <input
+                                                type="file"
+                                                style={{ display: 'none' }}
+                                                ref={(el) => { fileInputRefs.current[task.id] = el; }}
+                                                onChange={(e) => {
+                                                    handleUpload(task.id, e.target.files[0]);
+                                                    e.target.value = '';
+                                                }}
+                                            />
+                                            <button
+                                                className="attachment-upload-btn"
+                                                type="button"
+                                                disabled={attachState[task.id]?.uploading}
+                                                onClick={() => fileInputRefs.current[task.id]?.click()}
+                                            >
+                                                {attachState[task.id]?.uploading ? '⏳ Uploading…' : '📎 Attach file'}
+                                            </button>
+                                            {attachState[task.id]?.error && (
+                                                <div style={{ color: 'var(--color-error)', fontSize: '0.8rem', marginTop: '4px' }}>
+                                                    {attachState[task.id].error}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
                         )}
                     </div>
                 ))}
@@ -556,6 +603,6 @@ export default function ProjectWorkspace() {
                     </button>
                 </form>
             </div>
-        </div >
+        </motion.div>
     );
 }
