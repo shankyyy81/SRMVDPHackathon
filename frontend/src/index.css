@@ -206,7 +206,8 @@ p {
 
 .btn-primary:hover {
   background-color: var(--primary-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
 }
 
 .btn-secondary {
@@ -218,6 +219,8 @@ p {
 .btn-secondary:hover {
   border-color: var(--secondary);
   background-color: var(--bg-body);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 12px -3px rgba(100, 116, 139, 0.15);
 }
 
 .btn-danger {
@@ -237,6 +240,8 @@ p {
 
 .btn-success:hover {
   filter: brightness(0.9);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 12px -3px rgba(16, 185, 129, 0.3);
 }
 
 .btn-block {
@@ -279,10 +284,13 @@ p {
   border: 1px solid var(--border-color);
 }
 
+.card-hover {
+  transition: transform 0.3s cubic-bezier(0.34, 1.15, 0.64, 1), box-shadow 0.3s ease;
+}
+
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  transition: var(--transition);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Navbar specific utility */
@@ -1115,6 +1123,22 @@ p {
   box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
 }
 
-.btn-primary:active {
-  transform: scale(0.96);
+.btn:active,
+.nav-link:active,
+.card-hover:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
 }

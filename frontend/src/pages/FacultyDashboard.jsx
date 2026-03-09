@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getMyProjects, assignStudents, deleteProject } from '../api/projects';
 import { getStudents } from '../api/users';
 
@@ -96,6 +97,19 @@ export default function FacultyDashboard() {
         }
     };
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.08 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, scale: 0.95, y: 20 },
+        show: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+    };
+
     return (
         <div>
             <div className="flex-center justify-between mb-4">
@@ -109,142 +123,153 @@ export default function FacultyDashboard() {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 grid-cols-2 grid-cols-3">
-                {projects.map(project => {
-                    const projectId = getProjectId(project);
-                    return (
-                    <div
-                        key={projectId}
-                        className="card card-hover"
-                        onClick={() => navigate(`/project/${projectId}/workspace`)}
-                        style={{
-                        borderLeft: `4px solid ${project.status === 'Completed' ? 'var(--success)' : 'var(--primary)'}`
-                    }}>
-                        <h3>{project.title}</h3>
-                        <p className="text-muted" style={{ fontSize: '0.9rem' }}>Status: {project.status}</p>
-                        <div className="mt-2">
-                            <strong>SDGs:</strong>
-                            <div className="d-flex gap-2 mt-1" style={{ flexWrap: 'wrap' }}>
-                                {Object.values(project.sdg_mapping).map((sdg, idx) => (
-                                    <span key={idx} style={{
-                                        fontSize: '0.8rem',
-                                        backgroundColor: 'var(--primary-light)',
-                                        color: 'var(--primary-hover)',
-                                        padding: '0.25rem 0.5rem',
-                                        borderRadius: '12px'
-                                    }}>
-                                        {sdg}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
+            <motion.div
+                className="grid grid-cols-1 grid-cols-2 grid-cols-3"
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+            >
+                <AnimatePresence>
+                    {projects.map(project => {
+                        const projectId = getProjectId(project);
+                        return (
+                            <motion.div
+                                variants={itemVariants}
+                                layout
+                                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                                key={projectId}
+                                className="card card-hover"
+                                onClick={() => navigate(`/project/${projectId}/workspace`)}
+                                style={{
+                                    borderLeft: `4px solid ${project.status === 'Completed' ? 'var(--success)' : 'var(--primary)'}`
+                                }}>
+                                <h3>{project.title}</h3>
+                                <p className="text-muted" style={{ fontSize: '0.9rem' }}>Status: {project.status}</p>
+                                <div className="mt-2">
+                                    <strong>SDGs:</strong>
+                                    <div className="d-flex gap-2 mt-1" style={{ flexWrap: 'wrap' }}>
+                                        {Object.values(project.sdg_mapping).map((sdg, idx) => (
+                                            <span key={idx} style={{
+                                                fontSize: '0.8rem',
+                                                backgroundColor: 'var(--primary-light)',
+                                                color: 'var(--primary-hover)',
+                                                padding: '0.25rem 0.5rem',
+                                                borderRadius: '12px'
+                                            }}>
+                                                {sdg}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
 
-                        <div className="mt-3">
-                            <div className="d-flex gap-2">
-                                <button
-                                    className="btn btn-primary"
-                                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(`/project/${projectId}/workspace`);
-                                    }}
-                                >
-                                    Open Workspace
-                                </button>
-                                <button
-                                    className="btn btn-secondary"
-                                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setExpandedProjectId(expandedProjectId === projectId ? null : projectId)
-                                    }}
-                                >
-                                    Assign Students
-                                </button>
-                                <button
-                                    className="btn btn-danger"
-                                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete(projectId);
-                                    }}
-                                    disabled={deletingId === projectId}
-                                >
-                                    {deletingId === projectId ? 'Deleting...' : 'Delete'}
-                                </button>
-                            </div>
-                        </div>
+                                <div className="mt-3">
+                                    <div className="d-flex gap-2">
+                                        <button
+                                            className="btn btn-primary"
+                                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/project/${projectId}/workspace`);
+                                            }}
+                                        >
+                                            Open Workspace
+                                        </button>
+                                        <button
+                                            className="btn btn-secondary"
+                                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedProjectId(expandedProjectId === projectId ? null : projectId)
+                                            }}
+                                        >
+                                            Assign Students
+                                        </button>
+                                        <button
+                                            className="btn btn-danger"
+                                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(projectId);
+                                            }}
+                                            disabled={deletingId === projectId}
+                                        >
+                                            {deletingId === projectId ? 'Deleting...' : 'Delete'}
+                                        </button>
+                                    </div>
+                                </div>
 
-                        {expandedProjectId === projectId && (
-                            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                                {assignError && (
-                                    <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>
-                                        {assignError}
+                                {expandedProjectId === projectId && (
+                                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                                        {assignError && (
+                                            <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>
+                                                {assignError}
+                                            </div>
+                                        )}
+
+                                        <div className="form-group">
+                                            <label className="form-label">Team Name</label>
+                                            <input
+                                                className="form-control"
+                                                value={getAssignmentState(projectId).team_name}
+                                                onChange={(e) =>
+                                                    updateAssignmentState(projectId, { team_name: e.target.value })
+                                                }
+                                                placeholder="E.g., Team Phoenix"
+                                            />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">Team Leader</label>
+                                            <select
+                                                className="form-control"
+                                                value={getAssignmentState(projectId).leader_id}
+                                                onChange={(e) =>
+                                                    updateAssignmentState(projectId, { leader_id: e.target.value })
+                                                }
+                                            >
+                                                <option value="">Select a student</option>
+                                                {students.map((s) => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {s.full_name} ({s.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">Team Members</label>
+                                            <select
+                                                className="form-control"
+                                                multiple
+                                                value={getAssignmentState(projectId).member_ids}
+                                                onChange={(e) => handleMembersChange(projectId, e)}
+                                                style={{ minHeight: '120px' }}
+                                            >
+                                                {students.map((s) => (
+                                                    <option key={s.id} value={s.id}>
+                                                        {s.full_name} ({s.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <div className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
+                                                Hold Ctrl (Windows) or Command (Mac) to select multiple students.
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            className="btn btn-primary"
+                                            disabled={assigning || !getAssignmentState(projectId).leader_id}
+                                            onClick={() => handleAssign(projectId)}
+                                        >
+                                            {assigning ? 'Assigning...' : 'Save Assignment'}
+                                        </button>
                                     </div>
                                 )}
-
-                                <div className="form-group">
-                                    <label className="form-label">Team Name</label>
-                                    <input
-                                        className="form-control"
-                                        value={getAssignmentState(projectId).team_name}
-                                        onChange={(e) =>
-                                            updateAssignmentState(projectId, { team_name: e.target.value })
-                                        }
-                                        placeholder="E.g., Team Phoenix"
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">Team Leader</label>
-                                    <select
-                                        className="form-control"
-                                        value={getAssignmentState(projectId).leader_id}
-                                        onChange={(e) =>
-                                            updateAssignmentState(projectId, { leader_id: e.target.value })
-                                        }
-                                    >
-                                        <option value="">Select a student</option>
-                                        {students.map((s) => (
-                                            <option key={s.id} value={s.id}>
-                                                {s.full_name} ({s.email})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">Team Members</label>
-                                    <select
-                                        className="form-control"
-                                        multiple
-                                        value={getAssignmentState(projectId).member_ids}
-                                        onChange={(e) => handleMembersChange(projectId, e)}
-                                        style={{ minHeight: '120px' }}
-                                    >
-                                        {students.map((s) => (
-                                            <option key={s.id} value={s.id}>
-                                                {s.full_name} ({s.email})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
-                                        Hold Ctrl (Windows) or Command (Mac) to select multiple students.
-                                    </div>
-                                </div>
-
-                                <button
-                                    className="btn btn-primary"
-                                    disabled={assigning || !getAssignmentState(projectId).leader_id}
-                                    onClick={() => handleAssign(projectId)}
-                                >
-                                    {assigning ? 'Assigning...' : 'Save Assignment'}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )})}
-            </div>
+                            </motion.div>
+                        )
+                    })}
+                </AnimatePresence>
+            </motion.div>
 
             {projects.length === 0 && (
                 <div className="text-center mt-8 text-muted">
