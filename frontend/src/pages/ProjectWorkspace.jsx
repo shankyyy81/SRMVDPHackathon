@@ -168,7 +168,7 @@ export default function ProjectWorkspace() {
 
             <div className="card mb-4">
                 <h3 style={{ fontSize: '1.2rem' }}>
-                    {user?.role === 'FACULTY' ? 'Faculty Task Board (Jira-style)' : 'Team Task Board'}
+                    {user?.role === 'FACULTY' ? 'Faculty Task Board' : 'Team Task Board'}
                 </h3>
                 <form onSubmit={handleCreateTask} className="mt-2">
                     <div className="grid grid-cols-1 grid-cols-2 gap-2">
