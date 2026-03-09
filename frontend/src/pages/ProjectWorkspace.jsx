@@ -9,6 +9,7 @@ import {
     queryRagAnswer,
     listLiteratureDocuments,
     uploadLiteratureDocument,
+    deleteLiteratureDocument,
     downloadLiteratureDocument,
     uploadAttachment,
     deleteAttachment,
@@ -235,12 +236,20 @@ export default function ProjectWorkspace() {
         }
     };
 
+    const handleDeleteLiteratureDoc = async (documentId) => {
+        try {
+            await deleteLiteratureDocument(projectId, documentId);
+            setRagDocs((prev) => prev.filter((d) => d.id !== documentId));
+        } catch (err) {
+            setError(err.message || 'Failed to delete literature document');
+        }
+    };
+
     if (loading) return <div className="text-center mt-8">Loading workspace...</div>;
     if (!workspace) return <div className="text-center mt-8">Workspace unavailable.</div>;
 
     return (
         <div className="container workspace-shell" style={{ paddingBottom: '2rem' }}>
-
             <div className="workspace-header card mb-4">
                 <h2 style={{ marginBottom: '0.5rem' }}>{workspace.title}</h2>
                 <p className="text-muted"><strong>Problem Statement:</strong> {workspace.problem_statement}</p>
@@ -295,6 +304,14 @@ export default function ProjectWorkspace() {
                                         onClick={() => downloadLiteratureDocument(projectId, d.id, d.filename)}
                                     >
                                         Download
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem', backgroundColor: '#dc3545', color: '#fff', border: 'none' }}
+                                        onClick={() => handleDeleteLiteratureDoc(d.id)}
+                                    >
+                                        Delete
                                     </button>
                                 </div>
                             ))}
@@ -539,6 +556,6 @@ export default function ProjectWorkspace() {
                     </button>
                 </form>
             </div>
-        </div>
+        </div >
     );
 }

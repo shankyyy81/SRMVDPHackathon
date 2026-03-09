@@ -175,6 +175,17 @@ export const uploadLiteratureDocument = async (projectId, file) => {
     return response.json();
 };
 
+export const deleteLiteratureDocument = async (projectId, documentId) => {
+    const response = await fetchClient(`/rag/projects/${projectId}/documents/${documentId}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to delete literature document');
+    }
+    return response.json();
+};
+
 export const downloadLiteratureDocument = async (projectId, documentId, filename) => {
     const token = localStorage.getItem('token');
     const response = await fetch(

@@ -266,6 +266,31 @@ async def list_literature_documents(
     ]
 
 
+@router.delete("/projects/{project_id}/documents/{document_id}")
+async def delete_literature_document(
+    project_id: PydanticObjectId,
+    document_id: PydanticObjectId,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    project = await Project.get(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not _is_project_participant(project, current_user):
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    doc = await LiteratureDocument.get(document_id)
+    if not doc or doc.project_id != str(project_id):
+        raise HTTPException(status_code=404, detail="Literature document not found")
+
+    file_path = LITERATURE_UPLOAD_ROOT / str(project_id) / doc.storage_filename
+    if file_path.exists():
+        file_path.unlink()
+
+    await doc.delete()
+
+    return {"message": "Document deleted successfully"}
+
+
 @router.get("/projects/{project_id}/documents/{document_id}/download")
 async def download_literature_document(
     project_id: PydanticObjectId,
