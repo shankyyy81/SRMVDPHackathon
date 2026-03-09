@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+motor
+beanie
+python-dotenv
+pydantic
+pydantic-settings
+passlib[argon2]
+python-jose[cryptography]
+python-multipart
+email-validator
+argon2-cffi
+torch
+transformers
