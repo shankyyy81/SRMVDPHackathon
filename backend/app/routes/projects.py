@@ -467,6 +467,35 @@ async def assign_students(
     if faculty_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to modify this project")
 
+    # Check for existing assignments in other projects
+    target_user_ids = set()
+    if payload.leader_id:
+        target_user_ids.add(str(payload.leader_id))
+    if payload.member_ids:
+        for mid in payload.member_ids:
+            target_user_ids.add(str(mid))
+            
+    if target_user_ids:
+        other_projects = await Project.find({"team": {"$ne": None}, "_id": {"$ne": project.id}}).to_list()
+        for p in other_projects:
+            if not p.team: continue
+            
+            check_ids = set()
+            l_id = _get_link_id(p.team.leader)
+            if l_id: check_ids.add(str(l_id))
+            if p.team.members:
+                for m in p.team.members:
+                    m_id = _get_link_id(m)
+                    if m_id: check_ids.add(str(m_id))
+                    
+            overlap = target_user_ids.intersection(check_ids)
+            if overlap:
+                overlap_users = []
+                for uid in overlap:
+                    u = await User.get(PydanticObjectId(uid))
+                    overlap_users.append(u.full_name if u else uid)
+                raise HTTPException(status_code=400, detail=f"Cannot assign students already in another project: {', '.join(overlap_users)}")
+
     # 3. Resolve leader
     leader_user = None
     if payload.leader_id:

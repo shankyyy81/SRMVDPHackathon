@@ -228,11 +228,13 @@ export default function FacultyDashboard() {
                                                 }
                                             >
                                                 <option value="">Select a student</option>
-                                                {students.map((s) => (
-                                                    <option key={s.id} value={s.id}>
-                                                        {s.full_name} ({s.email})
-                                                    </option>
-                                                ))}
+                                                {students
+                                                    .filter(s => !s.is_assigned || String(s.assigned_project_id) === String(projectId))
+                                                    .map((s) => (
+                                                        <option key={s.id} value={s.id}>
+                                                            {s.full_name} ({s.email})
+                                                        </option>
+                                                    ))}
                                             </select>
                                         </div>
 
@@ -245,11 +247,13 @@ export default function FacultyDashboard() {
                                                 onChange={(e) => handleMembersChange(projectId, e)}
                                                 style={{ minHeight: '120px' }}
                                             >
-                                                {students.map((s) => (
-                                                    <option key={s.id} value={s.id}>
-                                                        {s.full_name} ({s.email})
-                                                    </option>
-                                                ))}
+                                                {students
+                                                    .filter(s => !s.is_assigned || String(s.assigned_project_id) === String(projectId))
+                                                    .map((s) => (
+                                                        <option key={s.id} value={s.id}>
+                                                            {s.full_name} ({s.email})
+                                                        </option>
+                                                    ))}
                                             </select>
                                             <div className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
                                                 Hold Ctrl (Windows) or Command (Mac) to select multiple students.

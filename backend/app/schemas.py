@@ -30,6 +30,8 @@ class UserResponse(BaseModel):
     role: UserRole
     faculty_profile: Optional[FacultyProfile] = None
     student_profile: Optional[StudentProfile] = None
+    is_assigned: bool = False
+    assigned_project_id: Optional[str] = None
 
 class ProjectCreate(BaseModel):
     title: str

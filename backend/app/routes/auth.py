@@ -95,6 +95,25 @@ async def list_students(current_user: Annotated[User, Depends(get_current_user)]
     if current_user.role != UserRole.FACULTY:
         raise HTTPException(status_code=403, detail="Only Faculty can view students")
 
+    from app.models.project import Project
+    projects_with_teams = await Project.find({"team": {"$ne": None}}).to_list()
+    assigned_map = {}
+    for p in projects_with_teams:
+        if p.team:
+            def _get_link_id(link_obj):
+                if link_obj is None: return None
+                if hasattr(link_obj, "id"): return link_obj.id
+                if hasattr(link_obj, "ref") and hasattr(link_obj.ref, "id"): return link_obj.ref.id
+                if isinstance(link_obj, dict): return link_obj.get("$id") or link_obj.get("_id") or link_obj.get("id")
+                return None
+                
+            l_id = _get_link_id(p.team.leader)
+            if l_id: assigned_map[str(l_id)] = str(p.id)
+            if p.team.members:
+                for m in p.team.members:
+                    m_id = _get_link_id(m)
+                    if m_id: assigned_map[str(m_id)] = str(p.id)
+
     students = await User.find(User.role == UserRole.STUDENT).to_list()
     return [
         UserResponse(
@@ -103,7 +122,9 @@ async def list_students(current_user: Annotated[User, Depends(get_current_user)]
             full_name=s.full_name,
             role=s.role,
             faculty_profile=s.faculty_profile,
-            student_profile=s.student_profile
+            student_profile=s.student_profile,
+            is_assigned=str(s.id) in assigned_map,
+            assigned_project_id=assigned_map.get(str(s.id))
         )
         for s in students
     ]
