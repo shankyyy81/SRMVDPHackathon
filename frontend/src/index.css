@@ -1142,3 +1142,18 @@ p {
     transform: none !important;
   }
 }
+
+/* Home Feature Cards */
+.home-feature-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transition: all 0.1s ease-out;
+}
+
+[data-theme='dark'] .home-feature-card {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

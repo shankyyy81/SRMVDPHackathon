@@ -308,7 +308,7 @@ export default function ProjectWorkspace() {
             </div>
 
             <div className="card mb-4">
-                <h3 style={{ fontSize: '1.2rem' }}>AI RAG Assistant</h3>
+                <h3 style={{ fontSize: '1.2rem' }}>AI Assistant</h3>
                 <div className="mb-3">
                     <label className="form-label">Upload literature file (PDF/TXT/MD)</label>
                     <input
