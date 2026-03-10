@@ -69,9 +69,7 @@ export default function FacultyDashboard() {
                 member_ids: state.member_ids || []
             };
             const updated = await assignStudents(projectId, payload);
-            setProjects((prev) =>
-                prev.map((p) => (getProjectId(p) === projectId ? updated : p))
-            );
+            await loadData();
             setExpandedProjectId(null);
         } catch (err) {
             setAssignError(err.message || 'Failed to assign students');
@@ -88,7 +86,7 @@ export default function FacultyDashboard() {
         setAssignError('');
         try {
             await deleteProject(projectId);
-            setProjects((prev) => prev.filter((p) => getProjectId(p) !== projectId));
+            await loadData();
             if (expandedProjectId === projectId) setExpandedProjectId(null);
         } catch (err) {
             setAssignError(err.message || 'Failed to delete project');
