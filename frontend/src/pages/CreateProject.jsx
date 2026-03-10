@@ -137,8 +137,7 @@ export default function CreateProject() {
                                         padding: '1.5rem',
                                         display: 'flex',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        backgroundColor: '#f8fafc'
+                                        alignItems: 'center'
                                     }}
                                 >
 
