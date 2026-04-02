@@ -136,29 +136,46 @@ export default function CreateProject() {
                                     style={{
                                         padding: '1.5rem',
                                         display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
+                                        flexDirection: 'column',
+                                        gap: '1rem'
                                     }}
                                 >
 
-                                    <div>
-                                        <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>
-                                            {suggestion.sdg}
+                                    {/* Top Row: SDG Title, Confidence, and Button */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>
+                                                {suggestion.sdg}
+                                            </div>
+
+                                            {/* ✅ FIXED CONFIDENCE */}
+                                            <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+                                                Confidence: {suggestion.confidence.toFixed(1)}%
+                                            </div>
                                         </div>
 
-                                        {/* ✅ FIXED CONFIDENCE */}
-                                        <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                                            Confidence: {suggestion.confidence.toFixed(1)}%
-                                        </div>
+                                        <button
+                                            onClick={() => handleConfirm(suggestion)}
+                                            className="btn btn-success"
+                                            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                                        >
+                                            Confirm & Create
+                                        </button>
                                     </div>
 
-                                    <button
-                                        onClick={() => handleConfirm(suggestion)}
-                                        className="btn btn-success"
-                                        style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-                                    >
-                                        Confirm & Create
-                                    </button>
+                                    {/* Bottom Row: AI Suggested Targets */}
+                                    {suggestion.targets && suggestion.targets.length > 0 && (
+                                        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                                            <div className="text-muted" style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Relevant Targets:</div>
+                                            <ul style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                {suggestion.targets.map((t, i) => (
+                                                    <li key={i}>
+                                                        <strong>{t.target_id}</strong> {t.description} <span className="text-muted">({(t.confidence * 100).toFixed(0)}%)</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
 
                                 </div>
                             ))}

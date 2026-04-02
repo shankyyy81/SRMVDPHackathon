@@ -7,6 +7,7 @@ This repository contains the Product Management System developed for the SDG Hac
 - `backend/`: FastAPI Python backend application
 
 ## Setup and Running the Project
+Link to ML model : https://drive.google.com/file/d/1y5oHhs_vGWaJ8zoZKRJNONlZQJ7n3t_t/view?usp=sharing
 
 ### Backend
 1. Navigate to the backend directory:
